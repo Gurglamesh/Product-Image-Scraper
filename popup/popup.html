@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <title>Bilder</title>
+  <link rel="stylesheet" href="popup.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+<body>
+  <header>
+    <h1 id="product"></h1>
+  </header>
+
+  <section class="toolbar">
+    <div class="left">
+      <button id="selectAllBtn" type="button">Markera alla</button>
+      <button id="deselectAllBtn" type="button">Avmarkera alla</button>
+      <span id="count" class="inline"></span>
+      <label class="inline">
+        <input type="checkbox" id="enableDomain" />
+        Aktivera på <span id="domainLabel">domän</span>
+      </label>
+    </div>
+
+    <div class="right">
+      <label class="inline">
+        <input type="checkbox" id="onlyLarge" checked />
+        Visa endast stora bilder
+      </label>
+      <label class="inline">
+        <input type="checkbox" id="hideDuplicates" checked />
+        Dölj dubbletter
+      </label>
+      <label class="inline">
+        <input type="checkbox" id="removeBgHeuristic" checked />
+        Ta bort bakgrund (heuristik)
+      </label>
+      <label class="inline">
+        <input type="checkbox" id="askWhere" />
+        Fråga var jag vill spara
+      </label>
+      <button id="saveBtn" class="primary" type="button">Spara valda</button>
+    </div>
+  </section>
+
+  <section class="settings">
+    <details>
+      <summary>Anpassade Galleri-väljare</summary>
+      <div class="settings-content">
+        <label for="selectorsText">Ange en CSS-väljare per rad. Dessa används för att hitta bilder med prioritet 1.</label>
+        <textarea id="selectorsText" rows="7" placeholder="t.ex. .main-gallery&#10;t.ex. #image-container&#10;t.ex. [data-testid=gallery]"></textarea>
+        <div class="settings-actions">
+          <button id="saveSelectorsBtn" type="button">Spara väljare</button>
+          <button id="resetSelectorsBtn" type="button" class="secondary">Återställ Standard</button>
+          <span id="saveStatus"></span>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <section id="grid" class="grid"></section>
+
+  <script src="popup.js"></script>
+</body>
+</html>
