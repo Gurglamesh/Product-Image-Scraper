@@ -1,3 +1,5 @@
+// popup.js
+
 (function () {
   const B = typeof browser !== 'undefined' ? browser : chrome;
 
@@ -48,6 +50,28 @@
   const saveStatus = document.getElementById('saveStatus');
 
   let ALL_ITEMS = [];
+  let SELECTION_ORDER = [];
+
+  // ---- KORRIGERING: En mer robust funktion för att uppdatera numreringen ----
+  function updateSelectionNumbers() {
+    // Gå igenom varje bildruta som visas i griden
+    grid.querySelectorAll('.item').forEach(item => {
+      const url = item.dataset.url;
+      const numberEl = item.querySelector('.selection-number');
+      if (!numberEl) return;
+
+      // Hitta bildens plats i urvalslistan
+      const index = SELECTION_ORDER.indexOf(url);
+
+      if (index !== -1) {
+        // Om bilden finns i listan, visa dess nummer (index + 1)
+        numberEl.textContent = index + 1;
+      } else {
+        // Om bilden inte är vald, rensa numret
+        numberEl.textContent = '';
+      }
+    });
+  }
 
   function storageGet(keys, defaults) {
     return new Promise((resolve) => {
@@ -69,19 +93,16 @@
   }
 
   async function loadSettings() {
-    // ÄNDRAD: Lägger till 'hideDuplicates'
     const { askWhere, removeBgHeuristic, onlyLarge, hideDuplicates } =
       await storageGet({ askWhere: false, removeBgHeuristic: true, onlyLarge: true, hideDuplicates: true });
     askWhereCb.checked = !!askWhere;
     removeBgCb.checked = removeBgHeuristic !== false;
     onlyLargeCb.checked = onlyLarge !== false;
-    hideDuplicatesCb.checked = hideDuplicates !== false; // NYTT: Sätter status
+    hideDuplicatesCb.checked = hideDuplicates !== false;
   }
   askWhereCb.addEventListener('change', () => B.storage.local.set({ askWhere: askWhereCb.checked }));
   removeBgCb.addEventListener('change', () => B.storage.local.set({ removeBgHeuristic: removeBgCb.checked }));
   onlyLargeCb.addEventListener('change', () => { B.storage.local.set({ onlyLarge: onlyLargeCb.checked }); renderGrid(); });
-  
-  // NYTT: Lyssnare för nya checkboxen
   hideDuplicatesCb.addEventListener('change', () => { B.storage.local.set({ hideDuplicates: hideDuplicatesCb.checked }); renderGrid(); });
 
   async function loadCustomSelectors() {
@@ -89,22 +110,15 @@
     selectorsText.value = data.gallerySelectors.join('\n');
   }
 
-  // Add these listeners somewhere after the element variables are defined
-
   saveSelectorsBtn.addEventListener('click', async () => {
-    const selectors = selectorsText.value.split('\n')
-      .map(s => s.trim())
-      .filter(Boolean); // Filter out empty lines
-    
+    const selectors = selectorsText.value.split('\n').map(s => s.trim()).filter(Boolean);
     await B.storage.local.set({ gallerySelectors: selectors });
-
     saveStatus.textContent = 'Sparat!';
     setTimeout(() => { saveStatus.textContent = ''; }, 2000);
   });
 
   resetSelectorsBtn.addEventListener('click', () => {
     selectorsText.value = DEFAULT_GALLERY_SELECTORS.join('\n');
-    // Optional: automatically save when resetting
     saveSelectorsBtn.click();
   });
 
@@ -117,7 +131,6 @@
     return false;
   }
 
-  // BEHÅLLD: Din befintliga funktion
   function sortItems(items) {
     return items.slice().sort((a, b) => {
       const prioA = a.prio || 3;
@@ -133,23 +146,18 @@
     });
   }
 
-
-  // ÄNDRAD: renderGrid är nu ombyggd för att hantera båda filtren, men baserad på din version.
   function renderGrid() {
-    console.log("--- RenderGrid Start ---"); // Felsökning
+    SELECTION_ORDER = [];
+    
     const active = !grid.classList.contains('disabled');
     grid.innerHTML = '';
-    if (!active) { /* ... */ return; }
+    if (!active) { return; }
     
     let listToRender = ALL_ITEMS.slice();
-    console.log(`Initialt antal: ${listToRender.length}`);
-
     if (onlyLargeCb.checked) {
       listToRender = listToRender.filter(isBig);
-      console.log(`Efter storleksfilter: ${listToRender.length}`);
     }
     
-    // Steg 2: Dubblettfilter (ny logik)
     if (hideDuplicatesCb.checked) {
         const urlsInCurrentList = listToRender.map(item => item.url);
         const preferredUrls = new Set(choosePreferredByPath(urlsInCurrentList));
@@ -169,12 +177,12 @@
       const div = document.createElement('div');
       div.className = 'item';
       div.dataset.url = it.url;
-      div.dataset.idx = i + 1;
+      
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.checked = false;
       cb.dataset.url = it.url;
-      cb.dataset.idx = i + 1;
+      
       const img = document.createElement('img');
       img.src = it.url;
       img.alt = `Bild ${i+1}`;
@@ -182,8 +190,13 @@
       img.referrerPolicy = 'no-referrer';
       img.decoding = 'async';
       img.loading = 'lazy';
+      
+      const num = document.createElement('span');
+      num.className = 'selection-number';
+
       div.appendChild(cb);
       div.appendChild(img);
+      div.appendChild(num);
       grid.appendChild(div);
     });
 
@@ -191,7 +204,6 @@
     updateCount();
   }
 
-  // Ingen ändring i resten av filen
   function render(items, productName, active) {
     ALL_ITEMS = Array.isArray(items) ? items : [];
     grid.classList.toggle('disabled', !active);
@@ -200,8 +212,8 @@
   }
 
   function updateCount() {
-    const selected = grid.querySelectorAll('.item input[type="checkbox"]:checked').length;
-    const total = grid.querySelectorAll('.item input[type="checkbox"]').length;
+    const selected = SELECTION_ORDER.length;
+    const total = grid.querySelectorAll('.item').length;
     countEl.textContent = total ? `${selected} / ${total} valda` : '';
     saveBtn.disabled = selected === 0;
   }
@@ -211,36 +223,59 @@
     if (!card) return;
     const cb = card.querySelector('input[type="checkbox"]');
     if (!cb) return;
-    if (e.target === cb) {
-      card.classList.toggle('selected', cb.checked);
-      updateCount();
-      return;
+
+    if (e.target !== cb) {
+      cb.checked = !cb.checked;
     }
-    cb.checked = !cb.checked;
+    
     card.classList.toggle('selected', cb.checked);
+    const url = cb.dataset.url;
+
+    if (cb.checked) {
+      if (!SELECTION_ORDER.includes(url)) {
+        SELECTION_ORDER.push(url);
+      }
+    } else {
+      SELECTION_ORDER = SELECTION_ORDER.filter(u => u !== url);
+    }
+    
     updateCount();
+    updateSelectionNumbers();
   });
 
   document.getElementById('selectAllBtn').addEventListener('click', () => {
+    SELECTION_ORDER = [];
     grid.querySelectorAll('.item').forEach(card => {
       const cb = card.querySelector('input[type="checkbox"]');
-      if (cb && !cb.checked) { cb.checked = true; card.classList.add('selected'); }
+      if (cb) {
+        cb.checked = true; 
+        card.classList.add('selected');
+        const url = cb.dataset.url;
+        if (!SELECTION_ORDER.includes(url)) {
+            SELECTION_ORDER.push(url);
+        }
+      }
     });
     updateCount();
+    updateSelectionNumbers();
   });
+
   document.getElementById('deselectAllBtn').addEventListener('click', () => {
     grid.querySelectorAll('.item').forEach(card => {
       const cb = card.querySelector('input[type="checkbox"]');
-      if (cb && cb.checked) { cb.checked = false; card.classList.remove('selected'); }
+      if (cb) { 
+        cb.checked = false; 
+        card.classList.remove('selected'); 
+      }
     });
+    SELECTION_ORDER = [];
     updateCount();
+    updateSelectionNumbers();
   });
 
   saveBtn.addEventListener('click', async () => {
     try {
-      const selected = Array.from(grid.querySelectorAll('.item input[type="checkbox"]:checked'))
-        .sort((a, b) => a.dataset.idx - b.dataset.idx)
-        .map(cb => cb.dataset.url);
+      const selected = SELECTION_ORDER;
       if (!selected.length) return;
       const productName = productEl.textContent || 'produkt';
       await B.runtime.sendMessage({ type: 'downloadImages', urls: selected, productName });

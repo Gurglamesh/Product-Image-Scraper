@@ -177,6 +177,8 @@ async function downloadBlob(blob, filename, saveAs, conflictAction='uniquify'){
   }
 }
 
+// background.js
+
 async function handleDownloadImages(msg){
   const { urls = [], productName = 'produkt' } = msg || {};
   if (!urls.length) return;
@@ -211,8 +213,8 @@ async function handleDownloadImages(msg){
 
       fileCounter++;
       // ---- HÄR ÄR ÄNDRINGEN ----
-      // Filnamnet inkluderar nu även produktnamnet (safeBase)
-      const fname = `${safeBase}/${safeBase}_${pad(fileCounter, digits)}.jpg`;
+      // Numret placeras nu FÖRE produktnamnet för bättre sortering.
+      const fname = `${safeBase}/${pad(fileCounter, digits)}_${safeBase}.jpg`;
       
       await downloadBlob(outBlob, fname, saveAs, 'uniquify');
       await sleep(DOWNLOAD_DELAY_MS);

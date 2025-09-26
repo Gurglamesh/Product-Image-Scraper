@@ -1,11 +1,11 @@
+/* popup.css */
+
 :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
 
-/* ---- ÄNDRING 1: Gör popup-fönstret betydligt bredare ---- */
 body { 
   margin: 0; 
-  min-width: 800px;  /* Nytt min-värde för att passa den nya bredden */
-  max-width: 1200px; /* Ökad från 880px för att göra den mycket bredare */
-  min-height: 700px; /* Något ökad för att balansera proportionerna */
+  min-width: 800px;
+  max-width: 1200px;
 }
 
 header {
@@ -29,22 +29,20 @@ header button#saveBtn {
 
 h1 { margin: 0; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ---- ÄNDRING 2: Omarbetat verktygsfält för bred layout ---- */
 .toolbar {
-  display: flex; /* Ändrat från grid till flexbox */
-  justify-content: space-between; /* Placerar grupperna i varsin ände */
-  align-items: center; /* Centrerar allt vertikalt */
-  flex-wrap: wrap; /* Tillåter att det radbryter om fönstret är smalt */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 8px 12px;
   border-bottom: 1px solid #eee;
 }
 
-/* Anpassar grupperna inuti verktygsfältet för att vara i en rad */
 .toolbar .left, .toolbar .right {
   display: flex;
   align-items: center;
-  gap: 12px; /* Ger konsekvent mellanrum */
+  gap: 12px;
 }
 
 .toolbar .left button { 
@@ -66,14 +64,11 @@ label.inline {
   gap: 6px;
 }
 
-/* ---- ÄNDRING 3: Högre grid-yta för det nya fönstret ---- */
 .grid { 
   display: grid; 
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); 
   gap: 8px; 
   padding: 12px; 
-  max-height: 700px; /* Ökad maxhöjd för att matcha den nya fönsterstorleken */
-  overflow: auto; 
 }
 
 .item { 
@@ -84,6 +79,7 @@ label.inline {
   background: #fafafa; 
   cursor: pointer; 
 }
+
 .item input[type="checkbox"] { 
   position: absolute; 
   top: 6px; 
@@ -96,7 +92,7 @@ label.inline {
 .item img { 
   display: block; 
   width: 100%; 
-  height: 140px;
+  height: auto;
   object-fit: contain;
   user-select: none; 
   -webkit-user-drag: none; 
@@ -107,6 +103,35 @@ label.inline {
   outline: 2px solid #2563eb; 
   outline-offset: -2px; 
 }
+
+/* ---- NYTT: Stil för numreringen ---- */
+.selection-number {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  z-index: 3;
+  background-color: rgba(37, 99, 235, 0.9); /* Blå färg från knappen */
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none; /* Gör så att man kan klicka "igenom" siffran */
+  opacity: 0; /* Dold som standard */
+  transform: scale(0.5);
+  transition: all 0.15s ease-out;
+}
+
+.item.selected .selection-number {
+  opacity: 1; /* Synlig när bilden är vald */
+  transform: scale(1);
+}
+/* ---- SLUT PÅ NYTT ---- */
+
 
 .footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-top: 1px solid #eee; }
 .primary { background: #2563eb; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; }
