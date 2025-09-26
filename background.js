@@ -1,3 +1,5 @@
+// background.js
+
 // Cross-browser handle
 const B = typeof browser !== 'undefined' ? browser : chrome;
 
@@ -176,8 +178,6 @@ async function downloadBlob(blob, filename, saveAs, conflictAction='uniquify'){
     setTimeout(()=>URL.revokeObjectURL(url), 15000);
   }
 }
-
-// background.js
 
 async function handleDownloadImages(msg){
   const { urls = [], productName = 'produkt' } = msg || {};
