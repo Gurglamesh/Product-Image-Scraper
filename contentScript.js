@@ -9,6 +9,11 @@
   // --- NYCKELN: REGLER FÖR URL-OMVANDLING ---
   // Varje regel försöker omvandla en lågupplöst URL till en högupplöst.
   const TRANSFORMATION_RULES = [
+    // ---- NY SAMSUNG-REGEL ----
+    // Ersätter Samsungs storleksparameter (t.ex. ?$684_547_PNG$) med den för högsta kvalitet.
+    { search: /\?\$[^$]+\$$/, replace: '?$Q90_2052_1641_JPG$' },
+    // ---- SLUT PÅ SAMSUNG-REGEL ----
+
     // För Inet.se: /product/112x63/ -> /product/1600x900/
     { search: /\/product\/\d+x\d+\//g, replace: '/product/1600x900/' },
     // För många andra sidor: /..._100x100.jpg -> /...jpg
@@ -24,6 +29,7 @@
   // --- SLUT PÅ REGLER ---
 
   const DEFAULT_GALLERY_SELECTORS = [
+    '#pd-header-gallery', // Specifik väljare för Samsungs produktgalleri
     '.product-gallery', '.gallery', '[role="main"]', 'main', '.pdp-image-gallery',
     'media-gallery', '[aria-label="Galleri"]', '.c-imageslider', '#lightbox', '#ivImagesTab'
   ];
@@ -112,8 +118,9 @@
         } 
     };
 
-    // Genomsöker en uttömmande lista av möjliga data-attribut, inklusive Dells 'data-full-img'
-    const dataAttrs = ['data-full-img', 'data-src', 'data-original', 'data-lazy', 'data-zoom', 'data-large', 'data-full', 'data-fancybox', 'data-image', 'data-img', 'data-photo'];
+    // ---- NYTT FÖR SAMSUNG ----
+    // Genomsöker en uttömmande lista av möjliga data-attribut, inklusive Samsungs 'data-desktop-src'
+    const dataAttrs = ['data-desktop-src', 'data-full-img', 'data-src', 'data-original', 'data-lazy', 'data-zoom', 'data-large', 'data-full', 'data-fancybox', 'data-image', 'data-img', 'data-photo'];
     dataAttrs.forEach(attr => {
         if (el.hasAttribute(attr)) {
             push(el.getAttribute(attr));
@@ -193,12 +200,30 @@
     });
   }
 
-  function isAllowed(u){
+  function isAllowed(u, allowNoExtension = false){
     if (!u) return false;
     const lower = String(u).toLowerCase();
     if (lower.startsWith('data:')) return false;
-    if (!/\.(?:jpe?g|png|webp|avif)(?:$|[?#])/.test(lower)) return false;
+
+    // ---- ÄNDRING: Ny, flexibel logik för filändelser ----
+    const hasStandardExt = /\.(?:jpe?g|png|webp|avif)(?:$|[?#])/.test(lower);
+    if (!hasStandardExt && !allowNoExtension) {
+        // Om den saknar standardändelse OCH vi inte tillåter det, avvisa.
+        return false;
+    }
+    
     if (/(?:sprite|icon|logo|svg)/.test(lower)) return false;
+
+    const smallImageMatch = lower.match(/_(\d{1,3})x(\d{1,3})\./);
+    if (smallImageMatch) {
+        const width = parseInt(smallImageMatch[1], 10);
+        const height = parseInt(smallImageMatch[2], 10);
+        if (width <= 300 && height <= 300) {
+            // Om filnamnet indikerar att bilden är 300x300 eller mindre, ignorera den.
+            return false; 
+        }
+    }
+
     if (/(klarna|trygg|facebook|google|doubleclick|analytics)/.test(lower)) return false;
     return true;
   }
@@ -288,68 +313,80 @@
     const active = await ensureActiveFlag();
     if (!active) return { urls: [], productName: '' };
 
-    const storageData = await B.storage.local.get({ gallerySelectors: DEFAULT_GALLERY_SELECTORS });
-    const gallerySelectorString = storageData.gallerySelectors.join(', ');
-
-    console.log("Använder följande väljare för prio 1:", gallerySelectorString);
+    // ---- ÄNDRING (SAKNAS I DIN KOD) ----
+    // Hämta den nya inställningen "allowNoExtension" från storage
+    const storageData = await B.storage.local.get({ 
+        gallerySelectors: DEFAULT_GALLERY_SELECTORS,
+        allowNoExtension: false 
+    });
+    const { gallerySelectorString, allowNoExtension } = {
+        gallerySelectorString: storageData.gallerySelectors.join(', '),
+        allowNoExtension: storageData.allowNoExtension
+    };
     
+    console.log("Använder följande väljare för prio 1:", gallerySelectorString);
+
     ordWalk(document.documentElement);
     
     const set = new Map();
-    const push = (u, el, w=0, h=0) => { // 'el' är nu en parameter
-      if (!isAllowed(u)) return;
+    const push = (u, el, w=0, h=0) => {
+      // ---- ÄNDRING (SAKNAS I DIN KOD) ----
+      // Skicka med den nya flaggan till isAllowed()
+      if (!isAllowed(u, allowNoExtension)) return;
 
       const prio = el ? assignPriority(el, gallerySelectorString) : 3;
       const ord = el ? el.__img_ord : Number.POSITIVE_INFINITY;
 
       const prev = set.get(u);
       if (!prev) {
-        set.set(u, { url: u, w, h, ord, prio }); // Spara prio
+        set.set(u, { url: u, w, h, ord, prio });
       } else {
         if ((!prev.w && w) || (!prev.h && h)) { prev.w = Math.max(prev.w||0, w); prev.h = Math.max(prev.h||0, h); }
         if (ord < (prev.ord || Number.POSITIVE_INFINITY)) prev.ord = ord;
-        if (prio < (prev.prio || 3)) prev.prio = prio; // Uppdatera till bästa (lägsta) prio
+        if (prio < (prev.prio || 3)) prev.prio = prio;
       }
     };
 
-    // Steg 1: Samla alla URL:er vi kan hitta med befintliga metoder
-    const initialCandidates = new Set();
-    document.querySelectorAll('img, source, a, picture, figure, [style*="background"], [class*="bg"], [data-src], [data-original], [data-lazy]').forEach(el=>{
-      attrCandidates(el).forEach(u => initialCandidates.add(JSON.stringify({ u, el })));
+    // Använd en Map för att koppla en URL till dess ursprungliga element
+    const elementMap = new Map();
+    document.querySelectorAll('img, source, a, picture, figure, [style*="background"], [data-src], [data-original], [data-lazy], [data-desktop-src]').forEach(el => {
+        attrCandidates(el).forEach(u => {
+            if (!elementMap.has(u)) {
+                elementMap.set(u, el);
+            }
+        });
     });
-    metaAndLinkedImages().forEach(u => initialCandidates.add(JSON.stringify({ u, ord: 0 })));
-    findImagesInScripts().forEach(u => initialCandidates.add(JSON.stringify({ u, ord: 0 })));
 
-    // Steg 2: Applicera URL-omvandling för att gissa högupplösta versioner
-    const initialUrls = Array.from(initialCandidates).map(s => JSON.parse(s).u);
-    const transformedUrls = generateTransformedUrls(initialUrls);
-    transformedUrls.forEach(u => initialCandidates.add(JSON.stringify({ u, ord: 0 })));
+    const initialUrls = new Set(elementMap.keys());
+    metaAndLinkedImages().forEach(u => initialUrls.add(u));
+    findImagesInScripts().forEach(u => initialUrls.add(u));
     
-    // Steg 3: Mät och bearbeta den kompletta listan
-    const allCandidates = Array.from(initialCandidates);
-    const limited = allCandidates.slice(0, 500).map(s=>JSON.parse(s));
-    const measurePromises = limited.map(async ({u, el})=>{
-      let w=0,h=0;
+    const transformedUrls = generateTransformedUrls(Array.from(initialUrls));
+    transformedUrls.forEach(u => initialUrls.add(u));
+
+    const allUrls = Array.from(initialUrls);
+
+    const measurePromises = allUrls.slice(0, 500).map(async (u)=>{
+      const el = elementMap.get(u) || null;
+      let w=0, h=0;
       try { const m = await measureNatural(u); w=m.w; h=m.h; } catch {}
       push(u, el, w, h);
     });
 
-    allCandidates.slice(500).forEach(s=>{
-      const {u, el} = JSON.parse(s);
+    allUrls.slice(500).forEach(u=>{
+      const el = elementMap.get(u) || null;
       push(u, el, 0, 0);
     });
 
     await Promise.allSettled(measurePromises);
 
     const productName = getProductNameFallback();
-
-    // --- DEBUGGER: Log the collected image data to the console ---
     const finalImages = Array.from(set.values());
-    console.log(`--- [Produktbild-samlare] Debug Info: Found ${finalImages.length} images ---`);
-    console.table(finalImages, ["prio", "ord", "w", "h", "url"]);
-    // --- END DEBUGGER ---
 
-    return { urls: Array.from(set.values()), productName };
+    console.log(`--- [Produktbild-samlare] Debug Info: Hittade ${finalImages.length} bilder ---`);
+    console.table(finalImages.sort((a,b) => a.prio - b.prio || a.ord - b.ord), ["prio", "ord", "w", "h", "url"]);
+
+    return { urls: finalImages, productName };
   }
 
   (typeof B.runtime.onMessage !== 'undefined') && B.runtime.onMessage.addListener((msg, sender, sendResponse)=>{

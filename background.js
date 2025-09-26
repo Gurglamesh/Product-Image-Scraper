@@ -183,20 +183,32 @@ async function handleDownloadImages(msg){
   const { urls = [], productName = 'produkt' } = msg || {};
   if (!urls.length) return;
 
+  // Hämta alla inställningar, inklusive den nya "allowNoExtension"
   const st = await new Promise((res)=>{
-    try { B.storage.local.get({ askWhere:false, removeBgHeuristic:true }, (o)=>res(o||{})); }
-    catch { B.storage.local.get({ askWhere:false, removeBgHeuristic:true }).then(res); }
+    const defaults = { askWhere:false, removeBgHeuristic:true, allowNoExtension: false };
+    try { B.storage.local.get(defaults, (o)=>res(o||{})); }
+    catch { B.storage.local.get(defaults).then(res); }
   });
-  const saveAs = !!st.askWhere;
-  const removeBg = st.removeBgHeuristic !== false;
+  const { saveAs, removeBg, allowNoExtension } = st;
 
-  const filtered = urls.filter(isAllowedUrl);
+  // Ny, mer flexibel filtrering som respekterar den nya inställningen
+  const filtered = urls.filter(u => {
+      const lower = u.toLowerCase();
+      const hasStandardExt = /\.(?:jpe?g|png|webp|avif)(?:$|[?#])/.test(lower);
+      
+      if (!hasStandardExt && !allowNoExtension) {
+          return false;
+      }
+      if (URL_BLOCKLIST.some(s => lower.includes(s))) {
+          return false;
+      }
+      return true;
+  });
+
   const preferred = choosePreferredByPath(filtered);
-
   const safeBase = sanitizeName(productName);
   const pad = (n, width) => String(n).padStart(width, '0');
   const digits = String(preferred.length).length || 1;
-
   const seenHashes = new Set();
   let fileCounter = 0;
 
@@ -212,8 +224,6 @@ async function handleDownloadImages(msg){
       seenHashes.add(hash);
 
       fileCounter++;
-      // ---- HÄR ÄR ÄNDRINGEN ----
-      // Numret placeras nu FÖRE produktnamnet för bättre sortering.
       const fname = `${safeBase}/${pad(fileCounter, digits)}_${safeBase}.jpg`;
       
       await downloadBlob(outBlob, fname, saveAs, 'uniquify');

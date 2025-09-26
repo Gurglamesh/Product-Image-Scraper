@@ -4,6 +4,7 @@
   const B = typeof browser !== 'undefined' ? browser : chrome;
 
   const DEFAULT_GALLERY_SELECTORS = [
+    '#pd-header-gallery',
     '.product-gallery', '.gallery', '[role="main"]', 'main', '.pdp-image-gallery',
     'media-gallery', '[aria-label="Galleri"]', '.c-imageslider', '#lightbox', '#ivImagesTab'
   ];
@@ -40,6 +41,7 @@
   const removeBgCb = document.getElementById('removeBgHeuristic');
   const onlyLargeCb = document.getElementById('onlyLarge');
   const hideDuplicatesCb = document.getElementById('hideDuplicates');
+  const allowNoExtensionCb = document.getElementById('allowNoExtension'); // Nytt element
   const selectAllBtn = document.getElementById('selectAllBtn');
   const deselectAllBtn = document.getElementById('deselectAllBtn');
   const enableDomainCb = document.getElementById('enableDomain');
@@ -52,22 +54,15 @@
   let ALL_ITEMS = [];
   let SELECTION_ORDER = [];
 
-  // ---- KORRIGERING: En mer robust funktion för att uppdatera numreringen ----
   function updateSelectionNumbers() {
-    // Gå igenom varje bildruta som visas i griden
     grid.querySelectorAll('.item').forEach(item => {
       const url = item.dataset.url;
       const numberEl = item.querySelector('.selection-number');
       if (!numberEl) return;
-
-      // Hitta bildens plats i urvalslistan
       const index = SELECTION_ORDER.indexOf(url);
-
       if (index !== -1) {
-        // Om bilden finns i listan, visa dess nummer (index + 1)
         numberEl.textContent = index + 1;
       } else {
-        // Om bilden inte är vald, rensa numret
         numberEl.textContent = '';
       }
     });
@@ -93,15 +88,22 @@
   }
 
   async function loadSettings() {
-    const { askWhere, removeBgHeuristic, onlyLarge, hideDuplicates } =
-      await storageGet({ askWhere: false, removeBgHeuristic: true, onlyLarge: true, hideDuplicates: true });
-    askWhereCb.checked = !!askWhere;
-    removeBgCb.checked = removeBgHeuristic !== false;
-    onlyLargeCb.checked = onlyLarge !== false;
-    hideDuplicatesCb.checked = hideDuplicates !== false;
+    const defaults = { askWhere: false, removeBgHeuristic: true, onlyLarge: true, hideDuplicates: true, allowNoExtension: false };
+    const settings = await storageGet(defaults);
+    
+    askWhereCb.checked = !!settings.askWhere;
+    removeBgCb.checked = settings.removeBgHeuristic !== false;
+    onlyLargeCb.checked = settings.onlyLarge !== false;
+    hideDuplicatesCb.checked = settings.hideDuplicates !== false;
+    allowNoExtensionCb.checked = !!settings.allowNoExtension; // Ladda den nya inställningen
   }
+
+  // Spara alla inställningar
   askWhereCb.addEventListener('change', () => B.storage.local.set({ askWhere: askWhereCb.checked }));
   removeBgCb.addEventListener('change', () => B.storage.local.set({ removeBgHeuristic: removeBgCb.checked }));
+  allowNoExtensionCb.addEventListener('change', () => B.storage.local.set({ allowNoExtension: allowNoExtensionCb.checked }));
+
+  // Inställningar som kräver att griden ritas om
   onlyLargeCb.addEventListener('change', () => { B.storage.local.set({ onlyLarge: onlyLargeCb.checked }); renderGrid(); });
   hideDuplicatesCb.addEventListener('change', () => { B.storage.local.set({ hideDuplicates: hideDuplicatesCb.checked }); renderGrid(); });
 
@@ -167,7 +169,7 @@
     const finalList = sortItems(listToRender);
 
     if (!finalList.length) {
-      grid.innerHTML = '<div class="empty">Inga bilder hittades (med nuvarande filter).</div>';
+      grid.innerHTML = '<div class="empty">Inga bilder hittades (med nuvarande filter). Du kan behöva ladda om popupen efter att ha ändrat filter.</div>';
       countEl.textContent = '';
       saveBtn.disabled = true;
       return;
@@ -243,7 +245,7 @@
     updateSelectionNumbers();
   });
 
-  document.getElementById('selectAllBtn').addEventListener('click', () => {
+  selectAllBtn.addEventListener('click', () => {
     SELECTION_ORDER = [];
     grid.querySelectorAll('.item').forEach(card => {
       const cb = card.querySelector('input[type="checkbox"]');
@@ -260,7 +262,7 @@
     updateSelectionNumbers();
   });
 
-  document.getElementById('deselectAllBtn').addEventListener('click', () => {
+  deselectAllBtn.addEventListener('click', () => {
     grid.querySelectorAll('.item').forEach(card => {
       const cb = card.querySelector('input[type="checkbox"]');
       if (cb) { 
