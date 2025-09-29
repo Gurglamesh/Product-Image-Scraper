@@ -6,11 +6,26 @@ The extension is built to streamline the workflow for anyone needing to collect 
 
 ---
 
-## Installation
+### Installation
 
-You can find the most recent version of the extension on the GitHub releases page:
+## Install directly for Firefox
+[➜ Click to install Product Image Scraper](https://addons.mozilla.org/firefox/downloads/file/4587786/f56e0e01aa1c4855a8b4-0.8.0.xpi)
+
+---
 
 [**Download the Latest Release**](https://github.com/Gurglamesh/Product-Image-Scraper/releases/latest)
+
+1) **Load it temporarily in Firefox**
+   - Open Firefox and go to: `about:debugging#/runtime/this-firefox`
+   - Click **Load Temporary Add-on…**
+   - Choose the unzipped folder’s **`manifest.json`** (or pick the built `.xpi` if you have one).
+
+2) **Use it**
+   - The extension icon appears in the toolbar. Open a product page and click the icon to use it.
+
+> ⚠️ **Temporary only:** Debug-loaded add-ons are removed on **every browser restart**.
+
+
 
 ---
 
