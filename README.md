@@ -6,14 +6,14 @@ The extension is built to streamline the workflow for anyone needing to collect 
 
 ---
 
-### Installation
+## Installation
 
-## Install directly for Firefox
+### Install directly for Firefox
 [➜ Click to install Product Image Scraper](https://addons.mozilla.org/firefox/downloads/file/4587786/f56e0e01aa1c4855a8b4-0.8.0.xpi)
 
 ---
 
-## Temporary install for Firefox
+### Temporary install for Firefox
 [**Download the Latest Release**](https://github.com/Gurglamesh/Product-Image-Scraper/releases/latest)
 
 1) **Load it temporarily in Firefox**
