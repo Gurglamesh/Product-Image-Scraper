@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Produktbild-samlare",
-  "version": "1.0.0",
+  "version": "0.8.0",
   "description": "Hittar högupplösta produktbilder i gallerier/lightboxar och sparar 1000x1000 JPG.",
   "permissions": [
     "storage",
