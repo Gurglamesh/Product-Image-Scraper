@@ -13,18 +13,18 @@ The extension is built to streamline the workflow for anyone needing to collect 
 
 ---
 
+## Temporary install for Firefox
 [**Download the Latest Release**](https://github.com/Gurglamesh/Product-Image-Scraper/releases/latest)
 
 1) **Load it temporarily in Firefox**
    - Open Firefox and go to: `about:debugging#/runtime/this-firefox`
    - Click **Load Temporary Add-on…**
-   - Choose the unzipped folder’s **`manifest.json`** (or pick the built `.xpi` if you have one).
+   - Choose the unzipped folder’s **`manifest.json`**
 
 2) **Use it**
    - The extension icon appears in the toolbar. Open a product page and click the icon to use it.
 
 > ⚠️ **Temporary only:** Debug-loaded add-ons are removed on **every browser restart**.
-
 
 
 ---
