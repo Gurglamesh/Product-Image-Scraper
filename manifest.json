@@ -37,7 +37,9 @@
     "gecko": {
       "id": "techpriest@gurglorium.com",
       "strict_min_version": "143.0.1",
-      "data_collection_permissions": {}
+      "data_collection_permissions": {
+        "required": false
+      }
     }
   }
 }
