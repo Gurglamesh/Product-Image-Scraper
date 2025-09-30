@@ -6,7 +6,7 @@
   const DEFAULT_GALLERY_SELECTORS = [
     '#pd-header-gallery',
     '.product-gallery', '.gallery', '[role="main"]', 'main', '.pdp-image-gallery',
-    'media-gallery', '[aria-label="Galleri"]', '.c-imageslider', '#lightbox', '#ivImagesTab'
+    'media-gallery', '[aria-label="Galleri"]', '[aria-label="Produktgalleri"]', '.c-imageslider', '#lightbox', '#ivImagesTab'
   ];
 
   function stripQueryHash(u){

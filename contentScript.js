@@ -31,7 +31,7 @@
   const DEFAULT_GALLERY_SELECTORS = [
     '#pd-header-gallery', // Specifik väljare för Samsungs produktgalleri
     '.product-gallery', '.gallery', '[role="main"]', 'main', '.pdp-image-gallery',
-    'media-gallery', '[aria-label="Galleri"]', '.c-imageslider', '#lightbox', '#ivImagesTab'
+    'media-gallery', '[aria-label="Galleri"]', '[aria-label="Produktgalleri"]', '.c-imageslider', '#lightbox', '#ivImagesTab'
   ];
 
   function baseDomain(host){
@@ -62,6 +62,84 @@
     return path.join(' > ');
   }
   
+  /**
+   * Lägger till en bild i samlingen. Sätter endast prio om den är BÄTTRE 
+   * än den som redan är satt (lägre nummer är bättre).
+   * @param {string} url 
+   * @param {HTMLElement|null} el 
+   * @param {number} w 
+   * @param {number} h 
+   * @param {number} [newPrio] - Den nya prioriteten att försöka sätta.
+   */
+  function push(url, el, w, h, newPrio = 3) {
+      const key = stripQueryHash(url);
+      const existing = set.get(key);
+      
+      // Lägg till element-referens
+      if (el && !elementMap.has(url)) {
+          elementMap.set(url, el);
+      }
+
+      // Om URL:en redan finns
+      if (existing) {
+          // **PRIORITETSSKYDD:** Behåll den lägsta (bästa) prioriteten
+          if (newPrio < existing.prio) {
+              existing.prio = newPrio;
+          }
+          // Behåll de bästa w/h om de nya är 0/0
+          if (w > existing.w) existing.w = w;
+          if (h > existing.h) existing.h = h;
+          
+          set.set(key, existing);
+          return;
+      }
+
+      // Lägg till ny bild
+      set.set(key, {
+          url: url,
+          prio: newPrio,
+          w: w,
+          h: h,
+          el: el,
+          ord: set.size
+      });
+  }
+
+  /**
+   * Validerar om URL:en finns, är stor (minst 1200x400) och ger Prio 0.
+   * Kräver att funktionen 'measureNatural(url)' finns tillgänglig.
+   */
+  async function validateHighResUrl(url) {
+      if (!url || url.length < 10) return false;
+      
+      // 1. HEAD-check (För att se om filen finns)
+      try {
+          const headResponse = await fetch(url, { method: 'HEAD', mode: 'cors' });
+          if (!headResponse.ok) return false;
+      } catch (e) {
+          return false;
+      }
+
+      // 2. DIMENSION-check (För att se om filen är stor nog)
+      try {
+          const { w, h } = await measureNatural(url);
+          
+          const area = w * h;
+          const MIN_AREA = 1200 * 400; // 480,000 pixlar
+          
+          if (area >= MIN_AREA) {
+              // Lägg till i den globala insamlingen omedelbart med Prio 0 (högsta)
+              push(url, null, w, h, 0); 
+              return true;
+          }
+
+      } catch (e) {
+          return false;
+      }
+
+      return false;
+  }
+
   async function ensureActiveFlag(){
     if (ACTIVE_FOR_DOMAIN !== null) return ACTIVE_FOR_DOMAIN;
     const host = location.hostname;
@@ -272,19 +350,175 @@
     return document.body;
   }
 
-  function assignPriority(el, gallerySelectorString) {
-    // Priority 1: Check against the dynamic list of gallery selectors
-    if (el.closest(gallerySelectorString)) {
-      return 1;
-    }
-    // Priority 2: Sidebars and recommendations (this list remains hardcoded for now)
-    if (el.closest('aside, .sidebar, [class*="related"], [class*="recommend"], .accessories')) {
-      return 2;
-    }
-    // Priority 3: Allt annat (header, footer, etc.)
-    return 3;
+  /**
+   * Lägger till en bild i samlingen. Sätter endast prio om den är BÄTTRE 
+   * än den som redan är satt (lägre nummer är bättre).
+   * @param {string} url 
+   * @param {HTMLElement|null} el 
+   * @param {number} w 
+   * @param {number} h 
+   * @param {number} [newPrio] - Den nya prioriteten att försöka sätta.
+   */
+  function push(url, el, w, h, newPrio = 3) {
+      const key = stripQueryHash(url);
+      const existing = set.get(key);
+      
+      // Lägg till element-referens
+      if (el && !elementMap.has(url)) {
+          elementMap.set(url, el);
+      }
+
+      // Om URL:en redan finns
+      if (existing) {
+          // **PRIORITETSSKYDD:** Behåll den lägsta (bästa) prioriteten
+          if (newPrio < existing.prio) {
+              existing.prio = newPrio;
+          }
+          // Behåll de bästa w/h om de nya är 0/0
+          if (w > existing.w) existing.w = w;
+          if (h > existing.h) existing.h = h;
+          
+          set.set(key, existing);
+          return;
+      }
+
+      // Lägg till ny bild
+      set.set(key, {
+          url: url,
+          prio: newPrio,
+          w: w,
+          h: h,
+          el: el,
+          ord: set.size
+      });
   }
-  
+
+  function assignPriority(el, gallerySelectorString) {
+      // Prio 1: Galleri/Lightbox (Högst prio efter Prio 0)
+      if (el && el.closest(gallerySelectorString)) {
+        return 1;
+      }
+      // Prio 2: Produktbeskrivning/CMS-innehåll
+      if (el && el.closest('[data-test-id="cms-content"], [class*="description"], [class*="cms-content"]')) {
+          return 2; 
+      }
+      // Prio 3: Sidobarer, rekommendationer, etc. (Lägsta prioritet)
+      if (el && el.closest('aside, .sidebar, [class*="related"], [class*="recommend"], .accessories')) {
+        return 3; 
+      }
+      // Fallback till Prio 3.
+      return 3; 
+  }
+
+  // Huvudfunktion för att skrapa och mäta
+  async function scrapeAndMeasure() { 
+    
+    // Rensa samlingarna
+    set.clear();
+    elementMap.clear();
+
+    // 1. DOMÄNKONTROLL & FÖRBEREDELSER
+    const hostname = window.location.hostname;
+    const isInet = hostname.endsWith('inet.se');
+    const gallerySelectorString = (await getCustomSelectors()).join(',');
+
+    // Hämta dolda URL:er
+    const hiddenUrls = metaAndLinkedImages(); 
+    
+    // initialUrls innehåller alla funna URL:er (dolda och från DOM)
+    const initialUrls = new Set(hiddenUrls); 
+
+    // Gå igenom DOM, samla in URL:er och fyll elementMap 
+    const allElements = ordWalk(document.body); 
+    allElements.forEach(el => {
+        attrCandidates(el).forEach(u => {
+            if (isAllowed(u)) { 
+                initialUrls.add(u);
+                if (!elementMap.has(u)) {
+                    elementMap.set(u, el);
+                }
+            }
+        });
+    });
+
+    // Hämta URL:er från script-taggar
+    findImagesInScripts().forEach(u => {
+      if (isAllowed(u)) initialUrls.add(u);
+    });
+    
+    
+    // --- 2. INET-SPECIFIK GISSNINGSLOGIK ---
+    if (isInet) {
+        const inetRule = TRANSFORMATION_RULES.find(r => r.search.toString() === '/\\/product\\/\\d+x\\d+\\//g'.toString());
+        if (inetRule) {
+            initialUrls.forEach(u => {
+                let transformed = u.replace(inetRule.search, inetRule.replace);
+                if (transformed !== u && transformed.includes('/product/1600x900/')) {
+                    // Lägg till den gissade Prio 1-URL:en.
+                    initialUrls.add(transformed);
+                }
+            });
+        }
+    }
+    // --- SLUT PÅ GISSNINGSLOGIK ---
+
+    // --- 3. MÄTNING & PRIORITERING (FIXEN ÄR HÄR) ---
+    
+    const allUrls = Array.from(initialUrls);
+
+    // Mät och prioritera de 500 bästa URL:erna.
+    const measurePromises = allUrls.slice(0, 500).map(async (u)=>{
+      const el = elementMap.get(u) || null;
+      let w=0, h=0;
+      let calculatedPrio = 3; // Standard Prio innan analys
+
+      // Mät dimensioner FÖRST (w och h används för "Visa endast stora bilder")
+      try { 
+          const m = await measureNatural(u); w=m.w; h=m.h; 
+      } catch {}
+
+      // Applicera Inet-regler baserat på URL-sökvägen ENBART (utan w/h-krav):
+      if (isInet) {
+          // **PRIO 1 (HÖGST): URL innehåller 1600x900**
+          if (u.includes('/1600x900/')) {
+              calculatedPrio = 1; 
+          } 
+          // **PRIO 2: URL innehåller 800x10000**
+          else if (u.includes('/800x10000/')) {
+              calculatedPrio = 2; 
+          } 
+      }
+      
+      // Om ingen av Inet-reglerna matchade (calculatedPrio är fortfarande 3) eller om det inte är Inet:
+      // Använd DOM-baserad prioritering (returnerar 1, 2 eller 3).
+      if (calculatedPrio === 3) {
+          calculatedPrio = assignPriority(el, gallerySelectorString); 
+      }
+      
+      // Anropa push. Push-funktionen skyddar det lägsta prioritetstalet.
+      push(u, el, w, h, calculatedPrio); 
+    });
+
+    // Hantera de resterande URL:erna utan mätning
+    allUrls.slice(500).forEach(u=>{
+      const el = elementMap.get(u) || null;
+      const calculatedPrio = assignPriority(el, gallerySelectorString);
+      push(u, el, 0, 0, calculatedPrio); 
+    });
+
+    // Vänta på att mätningarna är klara
+    await Promise.allSettled(measurePromises);
+
+    // --- 4. SLUTRESULTAT ---
+    const productName = getProductNameFallback(); 
+    const finalImages = Array.from(set.values());
+
+    console.log(`--- [Produktbild-samlare] Debug Info: Hittade ${finalImages.length} bilder ---`);
+    console.table(finalImages.sort((a,b) => a.prio - b.prio || a.ord - b.ord), ["prio", "ord", "w", "h", "url"]);
+
+    return { urls: finalImages, productName };
+  }
+
   function generateTransformedUrls(sourceUrls) {
       const transformed = new Set();
       for (const url of sourceUrls) {

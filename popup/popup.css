@@ -64,20 +64,32 @@ label.inline {
   gap: 6px;
 }
 
-.grid { 
-  display: grid; 
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); 
-  gap: 8px; 
-  padding: 12px; 
+.toolbar .right label.inline {
+  white-space: normal;
 }
 
-.item { 
-  position: relative; 
-  border: 1px solid #e5e5e5; 
-  border-radius: 6px; 
-  overflow: hidden; 
-  background: #fafafa; 
-  cursor: pointer; 
+.grid {
+  display: grid;
+  /* Använd auto-fit för att få så många kolumner som möjligt med minst 200px bredd */
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  padding: 12px;
+  
+  /* 🖼️ NYCKELFIX: Tvingar varje rad att vara exakt 200px hög */
+  grid-auto-rows: 140px; 
+}
+
+/* 🖼️ FIXEN: Gör varje item till en container med fast höjd */
+.item {
+  position: relative;
+  /* Fixerad storlek: Bredd hanteras av grid-template-columns, sätt fast höjd */
+  height: 140px; /* <--- Välj din önskade höjd här */
+  background-color: #f7f7f7;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden; /* Dölj eventuellt spill om något går fel */
+  cursor: pointer;
+  transition: all 0.15s ease-out;
 }
 
 .item input[type="checkbox"] { 
@@ -89,19 +101,25 @@ label.inline {
   height: 16px; 
 }
 
-.item img { 
-  display: block; 
-  width: 100%; 
-  height: auto;
-  object-fit: contain;
-  user-select: none; 
-  -webkit-user-drag: none; 
-  background: #fff; 
+/* 🖼️ FIXEN: Se till att bilden fyller sin container och behåller proportioner */
+.item img {
+  width: 100%;    /* Fyller bredden av .item */
+  height: 100%;   /* Fyller höjden av .item */
+  
+  /* NYCKELN: Skalar bilden så att den får plats i containern UTAN att klippas. */
+  object-fit: contain; 
+  
+  /* Centrera bilden i containern */
+  object-position: center; 
+  
+  /* För att få bort oönskad drag-effekt (valfritt) */
+  pointer-events: none; 
 }
 
-.item.selected { 
-  outline: 2px solid #2563eb; 
-  outline-offset: -2px; 
+/* Styling för valda bilder (kan behållas som de är) */
+.item.selected {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.4);
 }
 
 /* ---- NYTT: Stil för numreringen ---- */
