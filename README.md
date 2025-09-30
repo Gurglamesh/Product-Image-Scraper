@@ -9,7 +9,7 @@ The extension is built to streamline the workflow for anyone needing to collect 
 ## Installation
 
 ### Install directly for Firefox
-[➜ Click to install Product Image Scraper](https://addons.mozilla.org/firefox/downloads/file/4587786/f56e0e01aa1c4855a8b4-0.8.0.xpi)
+[➜ Click to install Product Image Scraper](https://github.com/Gurglamesh/Product-Image-Scraper/releases/download/v0.8.0/f56e0e01aa1c4855a8b4-0.8.0.xpi)
 
 ---
 
