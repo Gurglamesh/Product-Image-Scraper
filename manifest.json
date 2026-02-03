@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Product Image Scraper",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Hittar högupplösta produktbilder i gallerier/lightboxar och sparar 1000x1000 JPG.",
   "permissions": [
     "storage",
