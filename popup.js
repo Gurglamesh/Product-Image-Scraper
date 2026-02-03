@@ -6,7 +6,7 @@
   const DEFAULT_GALLERY_SELECTORS = [
     '#pd-header-gallery',
     '.product-gallery', '.gallery', '[role="main"]', 'main', '.pdp-image-gallery',
-    'media-gallery', '[aria-label="Galleri"]', '.c-imageslider', '#lightbox', '#ivImagesTab'
+    'media-gallery', '[aria-label="Galleri"]', '[aria-label="Produktgalleri"]', '.c-imageslider', '#lightbox', '#ivImagesTab'
   ];
 
   function stripQueryHash(u){
@@ -64,9 +64,7 @@
   const grid = document.getElementById('grid');
   const productEl = document.getElementById('product');
   const saveBtn = document.getElementById('saveBtn');
-  const saveBtnFooter = document.getElementById('saveBtnFooter');
   const countEl = document.getElementById('count');
-  const countFooter = document.getElementById('countFooter');
   const askWhereCb = document.getElementById('askWhere');
   const removeBgCb = document.getElementById('removeBgHeuristic');
   const onlyLargeCb = document.getElementById('onlyLarge');
@@ -224,17 +222,6 @@
     if (hideDuplicatesCb.checked) {
         const urlsInCurrentList = listToRender.map(item => item.url);
         const preferredUrls = new Set(choosePreferredByPath(urlsInCurrentList));
-        
-        // Debug: Logga vilka som filtreras bort
-        const filtered = listToRender.filter(item => !preferredUrls.has(item.url));
-        if (filtered.length > 0) {
-          console.log(`🔍 Filtrerade bort ${filtered.length} dubbletter:`, filtered.map(f => ({
-            url: f.url,
-            ext: extOf(f.url),
-            size: `${f.w}×${f.h}`
-          })));
-        }
-        
         listToRender = listToRender.filter(item => preferredUrls.has(item.url));
     }
     
@@ -262,35 +249,9 @@
       img.src = it.url;
       img.alt = `Bild ${i+1}`;
       
-      // Extrahera filnamn från URL
-      let filename = 'okänt filnamn';
-      try {
-        const urlObj = new URL(it.url);
-        const pathname = urlObj.pathname;
-        const parts = pathname.split('/');
-        filename = parts[parts.length - 1] || 'okänt filnamn';
-        // Om filnamnet är tomt eller bara siffror/UUID, visa mer av pathen
-        if (!filename || /^[0-9a-f-]+$/i.test(filename.replace(/\.[^.]+$/, ''))) {
-          filename = parts.slice(-2).join('/') || filename;
-        }
-      } catch {
-        // Fallback för ogiltiga URLs
-        const parts = it.url.split('/');
-        filename = parts[parts.length - 1] || 'okänt filnamn';
-      }
-      
-      // Bygg tooltip med all information
-      const ext = extOf(it.url).toUpperCase() || 'OKÄND';
-      const dimensions = (it.w && it.h) ? `${it.w}×${it.h}px` : 'Okänd storlek';
-      const prio = typeof it.prio === 'number' ? ` | Prio: ${it.prio}` : '';
-      
-      // Tooltip format: "filename.jpg | 1920×1080px | PNG | Prio: 1"
-      const fullTooltip = `${filename}\n${dimensions} | ${ext}${prio}`;
-      const shortInfo = `${filename} | ${dimensions}`;
-      
-      img.title = fullTooltip;
-      div.dataset.filename = shortInfo;
-      
+      // Förbättrad tooltip med filtyp
+      const ext = extOf(it.url).toUpperCase();
+      img.title = (it.w && it.h) ? `${it.w}×${it.h} (${ext})` : ext;
       img.referrerPolicy = 'no-referrer';
       img.decoding = 'async';
       img.loading = 'lazy';
@@ -318,16 +279,8 @@
   function updateCount() {
     const selected = SELECTION_ORDER.length;
     const total = grid.querySelectorAll('.item').length;
-    const countText = total ? `${selected} / ${total} valda` : '';
-    
-    // Uppdatera båda räknarna
-    countEl.textContent = countText;
-    countFooter.textContent = countText;
-    
-    // Uppdatera båda knapparna
-    const isDisabled = selected === 0;
-    saveBtn.disabled = isDisabled;
-    saveBtnFooter.disabled = isDisabled;
+    countEl.textContent = total ? `${selected} / ${total} valda` : '';
+    saveBtn.disabled = selected === 0;
   }
 
   grid.addEventListener('click', (e) => {
@@ -393,20 +346,6 @@
       const productName = productEl.textContent || 'produkt';
       
       // Logga för debug
-      console.log('Skickar bilder i ordning:', selected);
-      
-      await B.runtime.sendMessage({ type: 'downloadImages', urls: selected, productName });
-      window.close();
-    } catch (e) { console.error(e); }
-  });
-
-  // Footer-knappen gör samma sak
-  saveBtnFooter.addEventListener('click', async () => {
-    try {
-      const selected = SELECTION_ORDER;
-      if (!selected.length) return;
-      const productName = productEl.textContent || 'produkt';
-      
       console.log('Skickar bilder i ordning:', selected);
       
       await B.runtime.sendMessage({ type: 'downloadImages', urls: selected, productName });
