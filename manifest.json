@@ -1,12 +1,7 @@
 {
   "manifest_version": 3,
-<<<<<<< Updated upstream
-  "name": "Produktbild-samlare",
-  "version": "1.0.0",
-=======
   "name": "Product Image Scraper",
   "version": "0.9.3",
->>>>>>> Stashed changes
   "description": "Hittar högupplösta produktbilder i gallerier/lightboxar och sparar 1000x1000 JPG.",
   "permissions": [
     "storage",
@@ -41,14 +36,10 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "techpriest@gurglorium.com",
-<<<<<<< Updated upstream
-      "strict_min_version": "109.0"
-=======
       "strict_min_version": "142.0",
       "data_collection_permissions": {
         "required": ["none"]
       }
->>>>>>> Stashed changes
     }
   }
 }
