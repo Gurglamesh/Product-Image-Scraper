@@ -5,6 +5,9 @@ node_modules/
 dist/
 build/
 
+# web-ext build output
+web-ext-artifacts/
+
 # environment files (API keys, secrets)
 .env
 
