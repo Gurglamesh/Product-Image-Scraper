@@ -10,7 +10,7 @@ const JPEG_QUALITY = 1.0;           // export quality
 const DOWNLOAD_DELAY_MS = 400;      // sequential download delay
 
 // Allowed extensions for *sources*
-const ALLOWED_EXT = ["jpg","jpeg","png","webp","avif"]; // svg excluded
+const ALLOWED_EXT = ["jpg","jpeg","png","webp","avif","tiff","tif","heic","gif"]; // Utökad lista
 
 // crude blocklist (lowercased substrings)
 const URL_BLOCKLIST = [
@@ -53,32 +53,51 @@ function isAllowedUrl(u){
   return true;
 }
 
-// ---- ÄNDRING: Ny, smartare funktion för att välja bilder ----
-// Denna funktion förstår att ?v=1 och ?v=2 kan vara olika bilder,
-// men prioriterar fortfarande PNG över JPG om de är samma motiv.
+// ---- FÖRBÄTTRAD: Smartare dubblettfiltrering ----
+// Denna funktion förstår att ?v=1 och ?v=2 KAN vara olika bilder.
+// Den jämför HELA URL:en (inkl. query) men prioriterar filtyper enligt din spec.
 function choosePreferredByPath(urls) {
-    const rank = { png: 4, jpg: 3, jpeg: 3, webp: 2, avif: 1 };
-    const byPath = new Map();
+    // Prioritetsordning: TIFF (högst), PNG, HEIC/AVIF, JPEG, GIF (lägst)
+    const rank = { 
+        tiff: 10, 
+        tif: 10,
+        png: 9, 
+        heic: 8,
+        avif: 8, 
+        jpeg: 7, 
+        jpg: 7,
+        webp: 6,
+        gif: 5
+    };
+    
+    const byBase = new Map();
 
     for (const u of urls) {
-        let path;
+        // ÄNDRING: Använd HELA URL:en utan endast hash som bas
+        // Detta betyder att ?v=1 och ?v=2 behandlas som OLIKA bilder
+        let basePath;
         try {
-            // Använd hela sökvägen (utan query/hash) som unik identifierare för motivet
-            path = stripQueryHash(u);
+            const url = new URL(u);
+            url.hash = ''; // Ta bara bort hash
+            basePath = url.toString();
         } catch {
-            continue; // Hoppa över ogiltiga URL:er
+            basePath = u.split('#')[0]; // Fallback
         }
 
         const e = extOf(u);
         const r = rank[e] || 0;
 
-        const prev = byPath.get(path);
-        // Om vi inte sett denna sökväg förut, ELLER om den nya filtypen har högre rank
+        const prev = byBase.get(basePath);
+        
+        // Behåll endast om:
+        // 1. Vi inte sett denna exakta URL förut, ELLER
+        // 2. Den nya filtypen har högre prioritet
         if (!prev || r > prev.rank) {
-            byPath.set(path, { url: u, rank: r });
+            byBase.set(basePath, { url: u, rank: r });
         }
     }
-    return Array.from(byPath.values()).map(x => x.url);
+    
+    return Array.from(byBase.values()).map(x => x.url);
 }
 
 
@@ -191,32 +210,21 @@ async function handleDownloadImages(msg){
   });
   const { saveAs, removeBg, allowNoExtension } = st;
 
-  // Ny, mer flexibel filtrering som respekterar den nya inställningen
-  const filtered = urls.filter(u => {
-      const lower = u.toLowerCase();
-      const hasStandardExt = /\.(?:jpe?g|png|webp|avif)(?:$|[?#])/.test(lower);
-      
-      if (!hasStandardExt && !allowNoExtension) {
-          return false;
-      }
-      if (URL_BLOCKLIST.some(s => lower.includes(s))) {
-          return false;
-      }
-      return true;
-  });
-
-  const preferred = choosePreferredByPath(filtered);
+  // KRITISK FIX: Använd urls-arrayen DIREKT i den ordning användaren valde
+  // URLs kommer redan i rätt ordning från popup (SELECTION_ORDER)
   const safeBase = sanitizeName(productName);
   const pad = (n, width) => String(n).padStart(width, '0');
-  const digits = String(preferred.length).length || 1;
+  const digits = String(urls.length).length || 1;
   const seenHashes = new Set();
   let fileCounter = 0;
 
-  for (const u of preferred){
+  // Iterera genom URLs i exakt den ordning de skickades
+  for (const u of urls){
     try {
       const srcBlob = await fetchBlob(u);
       const { blob: outBlob, hash } = await renderToJpeg(srcBlob, removeBg);
 
+      // Hoppa över dubbletter baserat på bildinnehåll (hash)
       if (seenHashes.has(hash)) {
         await sleep(40);
         continue;
@@ -244,13 +252,6 @@ B.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
-// Hjälpfunktion för att få basdomänen
-function baseDomain(host) {
-  if (!host) return '';
-  const parts = host.split('.');
-  return parts.length <= 2 ? host : parts.slice(-2).join('.');
-}
-
 // Lyssnare som öppnar popup automatiskt
 B.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   // Kör bara när sidan är helt färdigladdad och har en http/https-URL
@@ -271,8 +272,7 @@ B.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       // Kontrollera om domänen är aktiverad
       if (storage.allowedDomains && storage.allowedDomains[bdom]) {
         
-        // ---- HÄR ÄR DEN KORRIGERADE KODEN ----
-        // Anropas nu helt utan parametrar.
+        // Öppna popup automatiskt
         if (B.action && B.action.openPopup) {
           B.action.openPopup();
         }
