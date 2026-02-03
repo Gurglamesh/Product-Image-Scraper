@@ -80,6 +80,8 @@
   const saveSelectorsBtn = document.getElementById('saveSelectorsBtn');
   const resetSelectorsBtn = document.getElementById('resetSelectorsBtn');
   const saveStatus = document.getElementById('saveStatus');
+  const sortBySizeCb = document.getElementById('sortBySize');
+
 
   let ALL_ITEMS = [];
   let SELECTION_ORDER = [];
@@ -118,7 +120,15 @@
   }
 
   async function loadSettings() {
-    const defaults = { askWhere: false, removeBgHeuristic: true, onlyLarge: true, hideDuplicates: true, allowNoExtension: false };
+    const defaults = { 
+      askWhere: false, 
+      removeBgHeuristic: true, 
+      onlyLarge: true, 
+      hideDuplicates: true, 
+      allowNoExtension: false,
+      sortBySize: false
+    };
+
     const settings = await storageGet(defaults);
     
     askWhereCb.checked = !!settings.askWhere;
@@ -126,6 +136,7 @@
     onlyLargeCb.checked = settings.onlyLarge !== false;
     hideDuplicatesCb.checked = settings.hideDuplicates !== false;
     allowNoExtensionCb.checked = !!settings.allowNoExtension;
+    sortBySizeCb.checked = !!settings.sortBySize;
   }
 
   // Spara alla inställningar
@@ -153,6 +164,24 @@
     selectorsText.value = DEFAULT_GALLERY_SELECTORS.join('\n');
     saveSelectorsBtn.click();
   });
+
+  sortBySizeCb.addEventListener('change', () => {
+    B.storage.local.set({ sortBySize: sortBySizeCb.checked });
+    renderGrid();
+  });
+
+  function sortItemsBySizeDesc(items) {
+    // behåll stabil ordning vid lika storlek via index
+    return items
+      .map((it, idx) => ({ it, idx }))
+      .sort((a, b) => {
+        const aArea = (+a.it.w || 0) * (+a.it.h || 0);
+        const bArea = (+b.it.w || 0) * (+b.it.h || 0);
+        if (bArea !== aArea) return bArea - aArea; // störst först
+        return a.idx - b.idx; // ingen annan sortering, bara stabilitet
+      })
+      .map(x => x.it);
+  }
 
   function isBig(item) {
     const w = +item.w || 0, h = +item.h || 0;
@@ -239,7 +268,10 @@
     }
     
     // Sortera listan
-    const finalList = sortItems(listToRender);
+    const finalList = sortBySizeCb.checked
+      ? sortItemsBySizeDesc(listToRender)
+      : sortItems(listToRender); // exakt som nu när ur-bockad
+
 
     if (!finalList.length) {
       grid.innerHTML = '<div class="empty">Inga bilder hittades (med nuvarande filter). Du kan behöva ladda om popupen efter att ha ändrat filter.</div>';

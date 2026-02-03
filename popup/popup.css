@@ -68,6 +68,21 @@ label.inline {
   white-space: normal;
 }
 
+/* Ny rad i toolbar för sortering */
+.toolbar .sort-row {
+  flex-basis: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end; /* byt till flex-start om du vill ha den till vänster */
+  gap: 12px;
+}
+
+/* (valfritt) ta bort extra indrag som .inline annars ger */
+.toolbar .sort-row .inline {
+  margin-left: 0;
+}
+
 .grid {
   display: grid;
   /* Använd auto-fit för att få så många kolumner som möjligt med minst 200px bredd */
