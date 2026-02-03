@@ -13,35 +13,65 @@
     try { const url = new URL(u); url.hash=''; url.search=''; return url.toString(); }
     catch { return (u||'').split('#')[0].split('?')[0]; }
   }
+  
   function extOf(u){
     const clean = stripQueryHash(u);
     const m = /\.([a-zA-Z0-9]{2,5})$/.exec(clean);
     return m ? m[1].toLowerCase() : '';
   }
+  
+  // FÖRBÄTTRAD: Bättre dubblettfiltrering som respekterar query-parametrar
   function choosePreferredByPath(urls) {
-      const rank = { png: 5, avif: 4, webp: 3, jpeg: 2, jpg: 2 };
-      const byPath = new Map();
+      // Prioritetsordning: TIFF (högst), PNG, HEIC/AVIF, JPEG, GIF (lägst)
+      const rank = { 
+          tiff: 10, 
+          tif: 10,
+          png: 9, 
+          heic: 8,
+          avif: 8, 
+          jpeg: 7, 
+          jpg: 7,
+          webp: 6,
+          gif: 5
+      };
+      
+      const byBase = new Map();
+
       for (const u of urls) {
-          const path = stripQueryHash(u).replace(/\.[^/.]+$/, "");
+          // ÄNDRING: Använd HELA URL:en utan endast hash som bas
+          let basePath;
+          try {
+              const url = new URL(u);
+              url.hash = ''; // Ta bara bort hash
+              basePath = url.toString();
+          } catch {
+              basePath = u.split('#')[0];
+          }
+
           const e = extOf(u);
           const r = rank[e] || 0;
-          const prev = byPath.get(path);
+
+          const prev = byBase.get(basePath);
+          
           if (!prev || r > prev.rank) {
-              byPath.set(path, { url: u, rank: r });
+              byBase.set(basePath, { url: u, rank: r });
           }
       }
-      return Array.from(byPath.values()).map(x => x.url);
+      
+      return Array.from(byBase.values()).map(x => x.url);
   }
 
   const grid = document.getElementById('grid');
   const productEl = document.getElementById('product');
   const saveBtn = document.getElementById('saveBtn');
+  const saveBtnFooter = document.getElementById('saveBtnFooter');
   const countEl = document.getElementById('count');
+  const countFooter = document.getElementById('countFooter');
   const askWhereCb = document.getElementById('askWhere');
   const removeBgCb = document.getElementById('removeBgHeuristic');
   const onlyLargeCb = document.getElementById('onlyLarge');
   const hideDuplicatesCb = document.getElementById('hideDuplicates');
-  const allowNoExtensionCb = document.getElementById('allowNoExtension'); // Nytt element
+  const allowNoExtensionCb = document.getElementById('allowNoExtension');
   const selectAllBtn = document.getElementById('selectAllBtn');
   const deselectAllBtn = document.getElementById('deselectAllBtn');
   const enableDomainCb = document.getElementById('enableDomain');
@@ -95,7 +125,7 @@
     removeBgCb.checked = settings.removeBgHeuristic !== false;
     onlyLargeCb.checked = settings.onlyLarge !== false;
     hideDuplicatesCb.checked = settings.hideDuplicates !== false;
-    allowNoExtensionCb.checked = !!settings.allowNoExtension; // Ladda den nya inställningen
+    allowNoExtensionCb.checked = !!settings.allowNoExtension;
   }
 
   // Spara alla inställningar
@@ -133,17 +163,45 @@
     return false;
   }
 
+  // FÖRBÄTTRAD: Sortering som tar hänsyn till filtyp och storlek
   function sortItems(items) {
+    // Prioritetsordning för filtyper (högre = bättre)
+    const extRank = { 
+        tiff: 10, 
+        tif: 10,
+        png: 9, 
+        heic: 8,
+        avif: 8, 
+        jpeg: 7, 
+        jpg: 7,
+        webp: 6,
+        gif: 5
+    };
+    
     return items.slice().sort((a, b) => {
+      // 1. Sortera först efter prioritet (lägre prio = bättre, visas först)
       const prioA = a.prio || 3;
       const prioB = b.prio || 3;
       if (prioA !== prioB) return prioA - prioB;
+      
+      // 2. Sortera sedan efter ordning (om tillgänglig)
       const ao = (typeof a.ord === 'number') ? a.ord : Number.POSITIVE_INFINITY;
       const bo = (typeof b.ord === 'number') ? b.ord : Number.POSITIVE_INFINITY;
       if (ao !== bo) return ao - bo;
+      
+      // 3. Sortera efter filtyp (högre rank = bättre)
+      const extA = extOf(a.url);
+      const extB = extOf(b.url);
+      const rankA = extRank[extA] || 0;
+      const rankB = extRank[extB] || 0;
+      if (rankA !== rankB) return rankB - rankA; // Högre rank först
+      
+      // 4. Sortera efter area (större = bättre)
       const aArea = (+a.w||0) * (+a.h||0);
       const bArea = (+b.w||0) * (+b.h||0);
       if (bArea !== aArea) return bArea - aArea;
+      
+      // 5. Alfabetisk sortering som sista utväg
       return String(a.url).localeCompare(String(b.url));
     });
   }
@@ -156,16 +214,20 @@
     if (!active) { return; }
     
     let listToRender = ALL_ITEMS.slice();
+    
+    // Filtrera efter storlek
     if (onlyLargeCb.checked) {
       listToRender = listToRender.filter(isBig);
     }
     
+    // Filtrera bort dubbletter
     if (hideDuplicatesCb.checked) {
         const urlsInCurrentList = listToRender.map(item => item.url);
         const preferredUrls = new Set(choosePreferredByPath(urlsInCurrentList));
         listToRender = listToRender.filter(item => preferredUrls.has(item.url));
     }
     
+    // Sortera listan
     const finalList = sortItems(listToRender);
 
     if (!finalList.length) {
@@ -188,7 +250,10 @@
       const img = document.createElement('img');
       img.src = it.url;
       img.alt = `Bild ${i+1}`;
-      img.title = (it.w && it.h) ? `${it.w}×${it.h}` : '';
+      
+      // Förbättrad tooltip med filtyp
+      const ext = extOf(it.url).toUpperCase();
+      img.title = (it.w && it.h) ? `${it.w}×${it.h} (${ext})` : ext;
       img.referrerPolicy = 'no-referrer';
       img.decoding = 'async';
       img.loading = 'lazy';
@@ -216,8 +281,16 @@
   function updateCount() {
     const selected = SELECTION_ORDER.length;
     const total = grid.querySelectorAll('.item').length;
-    countEl.textContent = total ? `${selected} / ${total} valda` : '';
-    saveBtn.disabled = selected === 0;
+    const countText = total ? `${selected} / ${total} valda` : '';
+    
+    // Uppdatera båda räknarna
+    countEl.textContent = countText;
+    countFooter.textContent = countText;
+    
+    // Uppdatera båda knapparna
+    const isDisabled = selected === 0;
+    saveBtn.disabled = isDisabled;
+    saveBtnFooter.disabled = isDisabled;
   }
 
   grid.addEventListener('click', (e) => {
@@ -277,9 +350,28 @@
 
   saveBtn.addEventListener('click', async () => {
     try {
+      // KRITISK FIX: Skicka SELECTION_ORDER direkt (användarens valda ordning)
       const selected = SELECTION_ORDER;
       if (!selected.length) return;
       const productName = productEl.textContent || 'produkt';
+      
+      // Logga för debug
+      console.log('Skickar bilder i ordning:', selected);
+      
+      await B.runtime.sendMessage({ type: 'downloadImages', urls: selected, productName });
+      window.close();
+    } catch (e) { console.error(e); }
+  });
+
+  // Footer-knappen gör samma sak
+  saveBtnFooter.addEventListener('click', async () => {
+    try {
+      const selected = SELECTION_ORDER;
+      if (!selected.length) return;
+      const productName = productEl.textContent || 'produkt';
+      
+      console.log('Skickar bilder i ordning:', selected);
+      
       await B.runtime.sendMessage({ type: 'downloadImages', urls: selected, productName });
       window.close();
     } catch (e) { console.error(e); }
@@ -290,6 +382,7 @@
       B.tabs.query({ active: true, currentWindow: true }, (tabs) => resolve(tabs && tabs[0]));
     });
   }
+  
   function getAllFrames(tabId) {
     if (B.webNavigation && B.webNavigation.getAllFrames) {
       try {
@@ -306,6 +399,7 @@
     }
     return Promise.resolve([{ frameId: 0 }]);
   }
+  
   function askFrame(tabId, frameId) {
     return new Promise((resolve) => {
       try {

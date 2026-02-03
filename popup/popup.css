@@ -151,7 +151,37 @@ label.inline {
 /* ---- SLUT PÅ NYTT ---- */
 
 
-.footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-top: 1px solid #eee; }
+.footer { 
+  display: flex; 
+  align-items: center; 
+  justify-content: space-between; 
+  padding: 10px 12px; 
+  border-top: 1px solid #eee;
+  background-color: #fafafa;
+  position: sticky;
+  bottom: 0;
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+}
+
+.footer-right {
+  display: flex;
+  align-items: center;
+}
+
+#countFooter {
+  font-size: 13px;
+  font-weight: 500;
+  color: #555;
+}
+
+#saveBtnFooter {
+  font-weight: 600;
+  padding: 8px 16px;
+}
 .primary { background: #2563eb; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; }
 .primary:disabled { opacity: .6; cursor: default; }
 
