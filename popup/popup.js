@@ -80,6 +80,8 @@
   const saveSelectorsBtn = document.getElementById('saveSelectorsBtn');
   const resetSelectorsBtn = document.getElementById('resetSelectorsBtn');
   const saveStatus = document.getElementById('saveStatus');
+  const sortBySizeCb = document.getElementById('sortBySize');
+
 
   let ALL_ITEMS = [];
   let SELECTION_ORDER = [];
@@ -118,7 +120,15 @@
   }
 
   async function loadSettings() {
-    const defaults = { askWhere: false, removeBgHeuristic: true, onlyLarge: true, hideDuplicates: true, allowNoExtension: false };
+    const defaults = { 
+      askWhere: false, 
+      removeBgHeuristic: true, 
+      onlyLarge: true, 
+      hideDuplicates: true, 
+      allowNoExtension: false,
+      sortBySize: false
+    };
+
     const settings = await storageGet(defaults);
     
     askWhereCb.checked = !!settings.askWhere;
@@ -126,6 +136,7 @@
     onlyLargeCb.checked = settings.onlyLarge !== false;
     hideDuplicatesCb.checked = settings.hideDuplicates !== false;
     allowNoExtensionCb.checked = !!settings.allowNoExtension;
+    sortBySizeCb.checked = !!settings.sortBySize;
   }
 
   // Spara alla inställningar
@@ -153,6 +164,24 @@
     selectorsText.value = DEFAULT_GALLERY_SELECTORS.join('\n');
     saveSelectorsBtn.click();
   });
+
+  sortBySizeCb.addEventListener('change', () => {
+    B.storage.local.set({ sortBySize: sortBySizeCb.checked });
+    renderGrid();
+  });
+
+  function sortItemsBySizeDesc(items) {
+    // behåll stabil ordning vid lika storlek via index
+    return items
+      .map((it, idx) => ({ it, idx }))
+      .sort((a, b) => {
+        const aArea = (+a.it.w || 0) * (+a.it.h || 0);
+        const bArea = (+b.it.w || 0) * (+b.it.h || 0);
+        if (bArea !== aArea) return bArea - aArea; // störst först
+        return a.idx - b.idx; // ingen annan sortering, bara stabilitet
+      })
+      .map(x => x.it);
+  }
 
   function isBig(item) {
     const w = +item.w || 0, h = +item.h || 0;
@@ -224,11 +253,25 @@
     if (hideDuplicatesCb.checked) {
         const urlsInCurrentList = listToRender.map(item => item.url);
         const preferredUrls = new Set(choosePreferredByPath(urlsInCurrentList));
+        
+        // Debug: Logga vilka som filtreras bort
+        const filtered = listToRender.filter(item => !preferredUrls.has(item.url));
+        if (filtered.length > 0) {
+          console.log(`🔍 Filtrerade bort ${filtered.length} dubbletter:`, filtered.map(f => ({
+            url: f.url,
+            ext: extOf(f.url),
+            size: `${f.w}×${f.h}`
+          })));
+        }
+        
         listToRender = listToRender.filter(item => preferredUrls.has(item.url));
     }
     
     // Sortera listan
-    const finalList = sortItems(listToRender);
+    const finalList = sortBySizeCb.checked
+      ? sortItemsBySizeDesc(listToRender)
+      : sortItems(listToRender); // exakt som nu när ur-bockad
+
 
     if (!finalList.length) {
       grid.innerHTML = '<div class="empty">Inga bilder hittades (med nuvarande filter). Du kan behöva ladda om popupen efter att ha ändrat filter.</div>';
@@ -251,9 +294,38 @@
       img.src = it.url;
       img.alt = `Bild ${i+1}`;
       
-      // Förbättrad tooltip med filtyp
-      const ext = extOf(it.url).toUpperCase();
-      img.title = (it.w && it.h) ? `${it.w}×${it.h} (${ext})` : ext;
+      // Extract filename only (no path)
+      let filename = 'okänt filnamn';
+      try {
+        const urlObj = new URL(it.url);
+        const parts = urlObj.pathname.split('/').filter(Boolean);
+        filename = parts.length ? decodeURIComponent(parts[parts.length - 1]) : 'okänt filnamn';
+      } catch {
+        const parts = it.url.split('/').filter(Boolean);
+        filename = parts.length ? parts[parts.length - 1] : 'okänt filnamn';
+      }
+
+      // Build strings
+      const ext = extOf(it.url).toUpperCase() || 'OKÄND';
+      const dimensions = (it.w && it.h) ? `${it.w}×${it.h}px` : 'Okänd storlek';
+      const prio = typeof it.prio === 'number' ? ` | Prio: ${it.prio}` : '';
+
+      // Tooltip can stay long (title supports newlines)
+      const fullTooltip = `${filename}\n${dimensions} | ${ext}${prio}`;
+      img.title = fullTooltip;
+
+      // Overlay text (what you show on hover)
+      const overlayFull = `${filename} | ${ext} | ${dimensions}`;
+      const overlayShort = `${ext} | ${dimensions}`;
+
+      // Store both on the element so we can recompute on resize
+      div.dataset.overlayFull = overlayFull;
+      div.dataset.overlayShort = overlayShort;
+
+      // Decide which to show based on element width
+      setOverlayText(div);
+
+      
       img.referrerPolicy = 'no-referrer';
       img.decoding = 'async';
       img.loading = 'lazy';
@@ -270,6 +342,29 @@
     saveBtn.disabled = true;
     updateCount();
   }
+
+  function setOverlayText(itemEl) {
+    const full = itemEl.dataset.overlayFull || '';
+    const short = itemEl.dataset.overlayShort || '';
+
+    // Match your CSS: 10px Courier New monospace
+    const ctx = setOverlayText._ctx || (setOverlayText._ctx = document.createElement('canvas').getContext('2d'));
+    ctx.font = "10px 'Courier New', monospace";
+
+    // Available width minus left/right padding (6px + 6px = 12px)
+    const available = Math.max(0, itemEl.clientWidth - 12);
+
+    const fullWidth = ctx.measureText(full).width;
+
+    if (fullWidth <= available) {
+      itemEl.dataset.overlayMode = 'full';
+      itemEl.dataset.filename = full;   // keep using your existing CSS attr(data-filename)
+    } else {
+      itemEl.dataset.overlayMode = 'short';
+      itemEl.dataset.filename = short;
+    }
+  }
+
 
   function render(items, productName, active) {
     ALL_ITEMS = Array.isArray(items) ? items : [];
