@@ -1,0 +1,9 @@
+# development junk
+node_modules/
+dist/**/*.map
+coverage/
+tests/
+.vscode/
+.git/
+.gitignore
+package-lock.json
