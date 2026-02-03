@@ -262,34 +262,37 @@
       img.src = it.url;
       img.alt = `Bild ${i+1}`;
       
-      // Extrahera filnamn från URL
+      // Extract filename only (no path)
       let filename = 'okänt filnamn';
       try {
         const urlObj = new URL(it.url);
-        const pathname = urlObj.pathname;
-        const parts = pathname.split('/');
-        filename = parts[parts.length - 1] || 'okänt filnamn';
-        // Om filnamnet är tomt eller bara siffror/UUID, visa mer av pathen
-        if (!filename || /^[0-9a-f-]+$/i.test(filename.replace(/\.[^.]+$/, ''))) {
-          filename = parts.slice(-2).join('/') || filename;
-        }
+        const parts = urlObj.pathname.split('/').filter(Boolean);
+        filename = parts.length ? decodeURIComponent(parts[parts.length - 1]) : 'okänt filnamn';
       } catch {
-        // Fallback för ogiltiga URLs
-        const parts = it.url.split('/');
-        filename = parts[parts.length - 1] || 'okänt filnamn';
+        const parts = it.url.split('/').filter(Boolean);
+        filename = parts.length ? parts[parts.length - 1] : 'okänt filnamn';
       }
-      
-      // Bygg tooltip med all information
+
+      // Build strings
       const ext = extOf(it.url).toUpperCase() || 'OKÄND';
       const dimensions = (it.w && it.h) ? `${it.w}×${it.h}px` : 'Okänd storlek';
       const prio = typeof it.prio === 'number' ? ` | Prio: ${it.prio}` : '';
-      
-      // Tooltip format: "filename.jpg | 1920×1080px | PNG | Prio: 1"
+
+      // Tooltip can stay long (title supports newlines)
       const fullTooltip = `${filename}\n${dimensions} | ${ext}${prio}`;
-      const shortInfo = `${filename} | ${dimensions}`;
-      
       img.title = fullTooltip;
-      div.dataset.filename = shortInfo;
+
+      // Overlay text (what you show on hover)
+      const overlayFull = `${filename} | ${ext} | ${dimensions}`;
+      const overlayShort = `${ext} | ${dimensions}`;
+
+      // Store both on the element so we can recompute on resize
+      div.dataset.overlayFull = overlayFull;
+      div.dataset.overlayShort = overlayShort;
+
+      // Decide which to show based on element width
+      setOverlayText(div);
+
       
       img.referrerPolicy = 'no-referrer';
       img.decoding = 'async';
@@ -307,6 +310,29 @@
     saveBtn.disabled = true;
     updateCount();
   }
+
+  function setOverlayText(itemEl) {
+    const full = itemEl.dataset.overlayFull || '';
+    const short = itemEl.dataset.overlayShort || '';
+
+    // Match your CSS: 10px Courier New monospace
+    const ctx = setOverlayText._ctx || (setOverlayText._ctx = document.createElement('canvas').getContext('2d'));
+    ctx.font = "10px 'Courier New', monospace";
+
+    // Available width minus left/right padding (6px + 6px = 12px)
+    const available = Math.max(0, itemEl.clientWidth - 12);
+
+    const fullWidth = ctx.measureText(full).width;
+
+    if (fullWidth <= available) {
+      itemEl.dataset.overlayMode = 'full';
+      itemEl.dataset.filename = full;   // keep using your existing CSS attr(data-filename)
+    } else {
+      itemEl.dataset.overlayMode = 'short';
+      itemEl.dataset.filename = short;
+    }
+  }
+
 
   function render(items, productName, active) {
     ALL_ITEMS = Array.isArray(items) ? items : [];

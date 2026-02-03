@@ -98,7 +98,7 @@ label.inline {
   transform: translateY(-2px);
 }
 
-/* Visa filnamn overlay vid hover */
+/* Show overlay on hover */
 .item::after {
   content: attr(data-filename);
   position: absolute;
@@ -113,9 +113,11 @@ label.inline {
   opacity: 0;
   transition: opacity 0.2s ease-out;
   pointer-events: none;
+
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+
   font-family: 'Courier New', monospace;
 }
 
