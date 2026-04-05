@@ -75,6 +75,7 @@
   const selectAllBtn = document.getElementById('selectAllBtn');
   const deselectAllBtn = document.getElementById('deselectAllBtn');
   const enableDomainCb = document.getElementById('enableDomain');
+  const autoOpenCb = document.getElementById('autoOpenEnabled');
   const domainLabel = document.getElementById('domainLabel');
   const selectorsText = document.getElementById('selectorsText');
   const saveSelectorsBtn = document.getElementById('saveSelectorsBtn');
@@ -126,7 +127,8 @@
       onlyLarge: true, 
       hideDuplicates: true, 
       allowNoExtension: false,
-      sortBySize: false
+      sortBySize: false,
+      autoOpenEnabled: false
     };
 
     const settings = await storageGet(defaults);
@@ -137,12 +139,14 @@
     hideDuplicatesCb.checked = settings.hideDuplicates !== false;
     allowNoExtensionCb.checked = !!settings.allowNoExtension;
     sortBySizeCb.checked = !!settings.sortBySize;
+    autoOpenCb.checked = !!settings.autoOpenEnabled;
   }
 
   // Spara alla inställningar
   askWhereCb.addEventListener('change', () => B.storage.local.set({ askWhere: askWhereCb.checked }));
   removeBgCb.addEventListener('change', () => B.storage.local.set({ removeBgHeuristic: removeBgCb.checked }));
   allowNoExtensionCb.addEventListener('change', () => B.storage.local.set({ allowNoExtension: allowNoExtensionCb.checked }));
+  autoOpenCb.addEventListener('change', () => B.storage.local.set({ autoOpenEnabled: autoOpenCb.checked }));
 
   // Inställningar som kräver att griden ritas om
   onlyLargeCb.addEventListener('change', () => { B.storage.local.set({ onlyLarge: onlyLargeCb.checked }); renderGrid(); });

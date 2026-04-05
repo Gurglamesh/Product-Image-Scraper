@@ -262,15 +262,18 @@ B.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     const bdom = baseDomain(url.hostname);
 
     // Hämta listan över tillåtna domäner från storage
-    B.storage.local.get({ allowedDomains: {} }, (storage) => {
+    B.storage.local.get({ allowedDomains: {}, autoOpenEnabled: false }, (storage) => {
       // Om ett fel uppstod, avbryt
       if (B.runtime.lastError) {
         console.warn("Kunde inte läsa storage:", B.runtime.lastError.message);
         return;
       }
       
-      // Kontrollera om domänen är aktiverad
-      if (storage.allowedDomains && storage.allowedDomains[bdom]) {
+      // Kontrollera om auto-öppning är aktiverad globalt OCH att domänen är aktiverad.
+      // OBS: autoOpenEnabled är false som standard — Firefox stöder nu openPopup() från
+      // bakgrundsskript (FF 128+), vilket gör att popup öppnas automatiskt om detta
+      // inte är aktivt inaktiverat.
+      if (storage.autoOpenEnabled && storage.allowedDomains && storage.allowedDomains[bdom]) {
         
         // Öppna popup automatiskt
         if (B.action && B.action.openPopup) {
