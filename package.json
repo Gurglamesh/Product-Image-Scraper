@@ -1,0 +1,22 @@
+{
+  "name": "product-image-scraper",
+  "version": "1.0.0",
+  "description": "**Product Image Scraper** is a powerful browser extension designed to find and download **high-resolution product images** from e-commerce websites. 🛍️ It intelligently scans pages, transforms thumbnail URLs into their full-size versions, and processes them into clean, uniformly sized JPEG files, ready for use.",
+  "main": "background.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "web-ext build --artifacts-dir=releases"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gurglamesh/Product-Image-Scraper.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Gurglamesh/Product-Image-Scraper/issues"
+  },
+  "homepage": "https://github.com/Gurglamesh/Product-Image-Scraper#readme"
+}
