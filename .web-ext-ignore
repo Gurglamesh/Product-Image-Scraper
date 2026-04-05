@@ -7,3 +7,4 @@ tests/
 .git/
 .gitignore
 package-lock.json
+web-ext-config.json
